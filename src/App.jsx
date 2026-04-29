@@ -73,7 +73,8 @@ export default function App() {
   const [summary,          setSummary]          = useState(null)
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [chatCustomer,     setChatCustomer]     = useState(null)
-  const [chatQuery,        setChatQuery]        = useState(null)
+  const [chatQuery, setChatQuery] = useState(null)      // for chat view
+const [wtpQuery,  setWtpQuery]  = useState(null)      // for wtp view
   const [refreshKey,       setRefreshKey]       = useState(0)
   const [backendOk,        setBackendOk]        = useState(null)
   const [loading,          setLoading]          = useState(false)
@@ -112,14 +113,15 @@ const handleChatQuery = useCallback((query, customer) => {
   
 }, [])
 
-   const handleChatQuery1 = useCallback((query, customer) => {
-    if (customer) 
-    {
-      setChatCustomer(customer)
-      setChatQuery(query + '___' + Date.now())
-      setView('wtp')
-    }  
-  }, [])
+ const handleChatQuery1 = useCallback((query, customer) => {
+  if (customer) {
+    setChatCustomer(customer)
+    setWtpQuery(query + '___' + Date.now())  // separate state, don't change view
+    // NO setView() call — stay on wtp
+  } else {
+    setWtpQuery(query + '___' + Date.now())  // header button, no customer
+  }
+}, [])
 
   const handleDataUpdate = useCallback((res) => {
     if (res.portfolio_data) setCustomers(res.portfolio_data)
@@ -168,7 +170,7 @@ const handleChatQuery = useCallback((query, customer) => {
       case 'dashboard':
         return (
           <div style={{ flex:1, overflow:'hidden', display:'grid',
-            gridTemplateColumns:'300px 1fr 300px', gridTemplateRows:'1fr 1fr',
+            gridTemplateColumns:'300px 1fr 300px', gridTemplateRows:'1.5fr 1fr',
             height:'100%' }}>
             <div style={{ gridRow:'1/3', borderRight:'1px solid var(--border)', overflow:'hidden' }}>
               <RiskWorklist customers={customers} selected={selectedCustomer}
@@ -183,7 +185,7 @@ const handleChatQuery = useCallback((query, customer) => {
             <AgingChart aging={agingData} summary={summary} loading={loading}/>
               
             </div>
-            <div style={{ overflow:'hidden' }}>
+            <div style={{ overflow:'auto' }}>
               <ActivityLog customerId={selectedCustomer?.customer_id} refreshKey={refreshKey}/>
             </div>
           </div>
@@ -192,50 +194,66 @@ const handleChatQuery = useCallback((query, customer) => {
       // ── AI Chat ─────────────────────────────────────────────────────────
       case 'chat':
         return (
-          <ThreeCol
-            left={
-              <RiskWorklist customers={customers} selected={chatCustomer}
-                onSelect={c => { setChatCustomer(c); selectCustomer(c) }}
-                onChat={handleChatQuery} loading={loading}/>
-            }
-            center={
+          // <ThreeCol
+          //   left={
+          //     <RiskWorklist customers={customers} selected={chatCustomer}
+          //       onSelect={c => { setChatCustomer(c); selectCustomer(c) }}
+          //       onChat={handleChatQuery} loading={loading}/>
+          //   }
+          //   center={
               
-              <ChatInterface selectedCustomer={chatCustomer}
-                onDataUpdate={handleDataUpdate}
-                initialQuery={chatQuery?.split('___')[0]} />
-            }
-            right={
-              <CustomerDetail customer={chatCustomer || selectedCustomer}
-                onChat={q => handleChatQuery(q, chatCustomer || selectedCustomer)}/>
-            }
-          />
+          //     <ChatInterface selectedCustomer={chatCustomer}
+          //       onDataUpdate={handleDataUpdate}
+          //       initialQuery={chatQuery?.split('___')[0]} />
+          //   }
+          //   right={
+          //     <CustomerDetail customer={chatCustomer || selectedCustomer}
+          //       onChat={q => handleChatQuery(q, chatCustomer || selectedCustomer)}/>
+          //   }
+          // />
+          <TwoCol
+  left={
+    <RiskWorklist
+      customers={customers}
+      selected={chatCustomer}
+      onSelect={c => { setChatCustomer(c); selectCustomer(c) }}
+      onChat={handleChatQuery}
+      loading={loading}
+    />
+  }
+  right={
+    <ChatInterface
+     key="chat-view"     
+      selectedCustomer={chatCustomer}
+      onDataUpdate={handleDataUpdate}
+      initialQuery={chatQuery?.split('___')[0]}
+    />
+  }
+/>
         )
 
       // ── WTP Worklist (Scenario 2) ───────────────────────────────────────
       case 'wtp':
-        return (
-          <ThreeCol
-            lW={300}
-            left={
-              <WTPWorklist
-                onSelectCustomer={c => { selectCustomer(c) }}
-                onChat={handleChatQuery1}/>
-            }
-            center={
-              <ChatInterface
-                selectedCustomer={chatCustomer}
-                onDataUpdate={handleDataUpdate}
-                initialQuery={chatQuery?.split('___')[0]}
-                placeholder="Ask about WTP signals, delinquency predictions, or channel strategies…"/>
-            }
-            right={
-              <CustomerDetail customer={selectedCustomer}
-                onChat={q => handleChatQuery1(q, selectedCustomer)}/>
-            }
-            rW={280}
-          />
-        )
-
+  return (
+    <TwoCol
+      leftW={300}
+      left={
+        <WTPWorklist
+          onSelectCustomer={c => { selectCustomer(c) }}
+          onChat={handleChatQuery1}
+        />
+      }
+      right={
+        <ChatInterface
+           key="wtp-view"   
+          selectedCustomer={chatCustomer}
+          onDataUpdate={handleDataUpdate}
+          initialQuery={wtpQuery?.split('___')[0]}   // ← wtpQuery not chatQuery
+          placeholder="Ask about WTP signals, delinquency predictions, or channel strategies…"
+        />
+      }
+    />
+  )
       // ── Email Inbox (Scenario 3) ────────────────────────────────────────
       case 'email':
         return (
@@ -342,8 +360,11 @@ const handleChatQuery = useCallback((query, customer) => {
               return (
                 <button key={item.id} title={item.tip} onClick={() => {
   goView(item.id)
-  if (item.id === 'chat' || item.id === "wtp") {
+  if (item.id === 'chat') {
     setChatQuery(null)
+  }
+  if(item.id === 'wtp') {
+    setWtpQuery(null)
   }
 }}
                   style={{

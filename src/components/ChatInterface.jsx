@@ -2,6 +2,10 @@
 import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { api } from '../api/client'
+import RiskDashboard from './RiskDashboard'
+import AccountDashboard from './AccountDashboard'
+import WTPDashboard from './WTPDashboard'
+import PTPDashboard from './Ptpdashboard'
 
 const SUGGESTIONS = [
   "Show me the full portfolio risk worklist",
@@ -122,7 +126,8 @@ function InsightCards({ insights }) {
 //   )
 // }
 
-function Message({ msg, index, messages }) {
+function Message({ msg, index, messages, selectedCustomer }) {
+  console.log('selectedcutomerrrrrrrrrrrrrrrr:', selectedCustomer)
   const isUser = msg.role === 'user'
   const prevMsg = messages[index - 1]
 
@@ -263,6 +268,20 @@ const extractEmailContent = (content) => {
               ) : (
                 <>
                 <ReactMarkdown>{msg.content}</ReactMarkdown>
+                 {/* 👇 Add this right here, after ReactMarkdown */}
+    {msg.intent === 'risk_portfolio' && msg.portfolioData?.length && (
+      <RiskDashboard data={msg.portfolioData} />
+    )}
+    {msg.intent === 'account_detail' && msg.customerData && (
+  <AccountDashboard data={msg.customerData} />
+)}
+
+{msg.intent === 'ptp' && (
+  <PTPDashboard data={selectedCustomer} />
+)}
+{msg.intent === 'wtp' && msg.portfolioData?.length && (
+  <WTPDashboard data={[selectedCustomer]} />
+)}
                 </>
               )}
 
@@ -419,7 +438,7 @@ useEffect(() => {
       setMessages(prev => [
         ...prev.slice(0,-1),
         { role:'assistant', content:res.response, insights:res.actionable_insights,
-          trace:res.agent_trace, intent:res.intent, time:now() }
+          trace:res.agent_trace, portfolioData: res.portfolio_data,intent:res.intent,  customerData: res.customer_data, time:now() }
       ])
       // if (res.portfolio_data || res.customer_data) onDataUpdate?.(res)
     } catch(e) {
@@ -459,7 +478,7 @@ useEffect(() => {
       {/* Messages */}
       <div style={{ flex:1, overflowY:'auto', padding:'20px 16px' }}>
         {messages.map((m,i) => (
-          <Message key={i} msg={{ ...m, trace: showTrace ? m.trace : [] }} index={i} messages={messages} />
+          <Message key={i} msg={{ ...m, trace: showTrace ? m.trace : [] }} index={i} messages={messages} selectedCustomer={selectedCustomer}/>
         ))}
         <div ref={bottomRef}/>
       </div>
